@@ -1,0 +1,68 @@
+name: Build Windir Keygate dylib
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+        env:
+          THEOS: ${{ github.workspace }}/theos
+
+      - name: Build .deb package
+        run: |
+          export THEOS=${{ github.workspace }}/theos
+          export PATH=$THEOS/bin:$PATH
+          make package FINALPACKAGE=1
+        env:
+          THEOS: ${{ github.workspace }}/theos
+
+      - name: Find built .dylib
+        id: find_dylib
+        run: |
+          DYLIB=$(find . -name "*.dylib" | head -1)
+          DEB=$(find packages -name "*.deb" | head -1)
+          echo "dylib=$DYLIB" >> $GITHUB_OUTPUT
+          echo "deb=$DEB" >> $GITHUB_OUTPUT
+
+      - name: Upload .dylib artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindirKeygate-dylib
+          path: |
+            ${{ steps.find_dylib.outputs.dylib }}
+
+      - name: Upload .deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindirKeygate-deb
+          path: |
+            ${{ steps.find_dylib.outputs.deb }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Windir Keygate v1.0.${{ github.run_number }}"
+          body: |
+            ## Windir Keygate .dylib
+            
+            Inject into any `.ipa` using tools like Sideloadly, AltStore, or esign.
+            
+            **API:** https://web-dynamic-library--karrderriim.replit.app/api
+          files: |
+            ${{ steps.find_dylib.outputs.dylib }}
+            ${{ steps.find_dylib.outputs.deb }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
