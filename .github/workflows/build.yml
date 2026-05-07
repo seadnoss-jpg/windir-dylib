@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -42,27 +45,26 @@ jobs:
           export PATH="$THEOS/bin:$(brew --prefix make)/libexec/gnubin:$PATH"
           make package FINALPACKAGE=1
           echo "=== Build done ==="
-          find .theos -name "*.dylib" 2>/dev/null | grep -v unsigned || true
+          find .theos/obj -name "*.dylib" 2>/dev/null | grep -v unsigned || true
           ls packages/ 2>/dev/null || true
 
       - name: Collect artifacts
         id: collect
         run: |
           DYLIB=$(find .theos/obj -name "*.dylib" 2>/dev/null | grep -v unsigned | head -1)
-          [ -z "$DYLIB" ] && DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | grep -v unsigned | head -1)
           DEB=$(ls packages/*.deb 2>/dev/null | head -1)
           echo "dylib=$DYLIB" >> $GITHUB_OUTPUT
           echo "deb=$DEB" >> $GITHUB_OUTPUT
           echo "dylib=$DYLIB  deb=$DEB"
 
-      - name: Upload .dylib
+      - name: Upload .dylib artifact
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-dylib
           path: ${{ steps.collect.outputs.dylib }}
           if-no-files-found: warn
 
-      - name: Upload .deb
+      - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-deb
@@ -82,6 +84,12 @@ jobs:
 
             **Dashboard:** https://web-dynamic-library--karrderriim.replit.app
             **Login:** `Windir@gmail.com` / `WINDIR`
+
+            ### Popup UI
+            - Native iOS `UIAlertController` style
+            - Title: **WINDIR MODE**
+            - Activate / Quit buttons
+            - Validates key live against the dashboard API
           files: |
             ${{ steps.collect.outputs.dylib }}
             ${{ steps.collect.outputs.deb }}
