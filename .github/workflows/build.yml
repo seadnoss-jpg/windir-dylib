@@ -1,4 +1,4 @@
-name: Build Windir Keygate dylib
+name: Build WINDIR Keygate dylib
 
 on:
   push:
@@ -13,66 +13,77 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Theos
-        uses: actions/cache@v4
+      - name: Cache Theos
         id: theos-cache
+        uses: actions/cache@v4
         with:
           path: /opt/theos
-          key: ${{ runner.os }}-theos-${{ hashFiles('.github/workflows/build.yml') }}
+          key: theos-macos-v5
 
-      - name: Install Theos
+      - name: Install Theos (fresh)
         if: steps.theos-cache.outputs.cache-hit != 'true'
         run: |
+          set -e
           sudo mkdir -p /opt/theos
-          sudo chown -R $USER /opt/theos
-          export THEOS=/opt/theos
-          curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos | bash
+          sudo chown -R "$(whoami)" /opt/theos
+          git clone --recursive https://github.com/theos/theos.git /opt/theos
+          echo "Theos cloned. Downloading SDK..."
+          mkdir -p /opt/theos/sdks
+          curl -fsSL "https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.5.sdk.tar.xz" \
+            -o /tmp/sdk.tar.xz
+          tar -xJf /tmp/sdk.tar.xz -C /opt/theos/sdks/
+          echo "SDK installed."
 
-      - name: Build .deb package
+      - name: Build
         run: |
+          set -e
           export THEOS=/opt/theos
-          export PATH=$THEOS/bin:$PATH
-          make package FINALPACKAGE=1 STRIP=0
+          export PATH="$THEOS/bin:$PATH"
+          make package FINALPACKAGE=1
+          echo "Build complete."
+          find . -name "*.dylib" 2>/dev/null
+          find packages -name "*.deb" 2>/dev/null
 
-      - name: Find artifacts
-        id: find_files
+      - name: Collect artifacts
+        id: collect
         run: |
-          DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | head -1)
-          DEB=$(find packages -name "*.deb" 2>/dev/null | head -1)
+          DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | grep -v debug | head -1)
+          [ -z "$DYLIB" ] && DYLIB=$(find . -path "*/obj/*" -name "*.dylib" 2>/dev/null | head -1)
+          DEB=$(ls packages/*.deb 2>/dev/null | head -1)
           echo "dylib=$DYLIB" >> $GITHUB_OUTPUT
           echo "deb=$DEB" >> $GITHUB_OUTPUT
-          echo "Found dylib: $DYLIB"
-          echo "Found deb: $DEB"
+          echo "dylib path: $DYLIB"
+          echo "deb path: $DEB"
 
       - name: Upload .dylib
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-dylib
-          path: ${{ steps.find_files.outputs.dylib }}
+          path: ${{ steps.collect.outputs.dylib }}
           if-no-files-found: warn
 
       - name: Upload .deb
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-deb
-          path: ${{ steps.find_files.outputs.deb }}
+          path: ${{ steps.collect.outputs.deb }}
           if-no-files-found: warn
 
-      - name: Release
+      - name: GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: "WINDIR Keygate v1.0.${{ github.run_number }}"
+          name: "WINDIR MODE v1.0.${{ github.run_number }}"
           body: |
-            ## WINDIR Keygate .dylib
+            ## WINDIR MODE Keygate
 
-            Inject into any `.ipa` using tools like Sideloadly, TrollStore, or esign.
+            Inject `.dylib` into any `.ipa` using Sideloadly, TrollStore, or esign.
 
             **Dashboard:** https://web-dynamic-library--karrderriim.replit.app
-            **API endpoint:** https://web-dynamic-library--karrderriim.replit.app/api/keys/validate
+            **Login:** `Windir@gmail.com` / `WINDIR`
           files: |
-            ${{ steps.find_files.outputs.dylib }}
-            ${{ steps.find_files.outputs.deb }}
+            ${{ steps.collect.outputs.dylib }}
+            ${{ steps.collect.outputs.deb }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
