@@ -12,7 +12,7 @@
 #import <Foundation/Foundation.h>
 
 // ─── Configuration ───────────────────────────────────────────────────────────
-static NSString *const kAPIBase     = @"https://YOUR_REPLIT_DOMAIN/api";
+static NSString *const kAPIBase     = @"https://web-dynamic-library--karrderriim.replit.app/api";
 static NSString *const kKeyStoreKey = @"WindirActivatedKey";
 static NSString *const kKeyExpiry   = @"WindirKeyExpiry";
 static NSString *const kDeviceIDKey = @"WindirDeviceID";
