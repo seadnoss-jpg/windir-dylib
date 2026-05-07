@@ -14,15 +14,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: |
-          brew install ldid dpkg make
+        run: brew install ldid dpkg make
 
       - name: Cache Theos
         id: theos-cache
         uses: actions/cache@v4
         with:
           path: /opt/theos
-          key: theos-macos-ldid-v2
+          key: theos-macos-plist-v1
 
       - name: Install Theos
         if: steps.theos-cache.outputs.cache-hit != 'true'
@@ -42,18 +41,19 @@ jobs:
           export THEOS=/opt/theos
           export PATH="$THEOS/bin:$(brew --prefix make)/libexec/gnubin:$PATH"
           make package FINALPACKAGE=1
-          echo "--- Build done ---"
-          find .theos -name "*.dylib" 2>/dev/null || true
+          echo "=== Build done ==="
+          find .theos -name "*.dylib" 2>/dev/null | grep -v unsigned || true
           ls packages/ 2>/dev/null || true
 
       - name: Collect artifacts
         id: collect
         run: |
-          DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | grep -v '\.unsigned' | head -1)
+          DYLIB=$(find .theos/obj -name "*.dylib" 2>/dev/null | grep -v unsigned | head -1)
+          [ -z "$DYLIB" ] && DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | grep -v unsigned | head -1)
           DEB=$(ls packages/*.deb 2>/dev/null | head -1)
           echo "dylib=$DYLIB" >> $GITHUB_OUTPUT
           echo "deb=$DEB" >> $GITHUB_OUTPUT
-          echo "dylib: $DYLIB | deb: $DEB"
+          echo "dylib=$DYLIB  deb=$DEB"
 
       - name: Upload .dylib
         uses: actions/upload-artifact@v4
@@ -82,11 +82,6 @@ jobs:
 
             **Dashboard:** https://web-dynamic-library--karrderriim.replit.app
             **Login:** `Windir@gmail.com` / `WINDIR`
-
-            ### How the popup looks
-            - Title: **WINDIR MODE**
-            - Enter your key → Activate / Quit
-            - Shows package type + time remaining after activation
           files: |
             ${{ steps.collect.outputs.dylib }}
             ${{ steps.collect.outputs.deb }}
