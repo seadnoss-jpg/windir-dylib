@@ -13,56 +13,66 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Theos
+        uses: actions/cache@v4
+        id: theos-cache
+        with:
+          path: /opt/theos
+          key: ${{ runner.os }}-theos-${{ hashFiles('.github/workflows/build.yml') }}
+
       - name: Install Theos
+        if: steps.theos-cache.outputs.cache-hit != 'true'
         run: |
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
-        env:
-          THEOS: ${{ github.workspace }}/theos
+          sudo mkdir -p /opt/theos
+          sudo chown -R $USER /opt/theos
+          export THEOS=/opt/theos
+          curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos | bash
 
       - name: Build .deb package
         run: |
-          export THEOS=${{ github.workspace }}/theos
+          export THEOS=/opt/theos
           export PATH=$THEOS/bin:$PATH
-          make package FINALPACKAGE=1
-        env:
-          THEOS: ${{ github.workspace }}/theos
+          make package FINALPACKAGE=1 STRIP=0
 
-      - name: Find built .dylib
-        id: find_dylib
+      - name: Find artifacts
+        id: find_files
         run: |
-          DYLIB=$(find . -name "*.dylib" | head -1)
-          DEB=$(find packages -name "*.deb" | head -1)
+          DYLIB=$(find .theos -name "*.dylib" 2>/dev/null | head -1)
+          DEB=$(find packages -name "*.deb" 2>/dev/null | head -1)
           echo "dylib=$DYLIB" >> $GITHUB_OUTPUT
           echo "deb=$DEB" >> $GITHUB_OUTPUT
+          echo "Found dylib: $DYLIB"
+          echo "Found deb: $DEB"
 
-      - name: Upload .dylib artifact
+      - name: Upload .dylib
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-dylib
-          path: |
-            ${{ steps.find_dylib.outputs.dylib }}
+          path: ${{ steps.find_files.outputs.dylib }}
+          if-no-files-found: warn
 
-      - name: Upload .deb package
+      - name: Upload .deb
         uses: actions/upload-artifact@v4
         with:
           name: WindirKeygate-deb
-          path: |
-            ${{ steps.find_dylib.outputs.deb }}
+          path: ${{ steps.find_files.outputs.deb }}
+          if-no-files-found: warn
 
-      - name: Create GitHub Release
+      - name: Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: "Windir Keygate v1.0.${{ github.run_number }}"
+          name: "WINDIR Keygate v1.0.${{ github.run_number }}"
           body: |
-            ## Windir Keygate .dylib
-            
-            Inject into any `.ipa` using tools like Sideloadly, AltStore, or esign.
-            
-            **API:** https://web-dynamic-library--karrderriim.replit.app/api
+            ## WINDIR Keygate .dylib
+
+            Inject into any `.ipa` using tools like Sideloadly, TrollStore, or esign.
+
+            **Dashboard:** https://web-dynamic-library--karrderriim.replit.app
+            **API endpoint:** https://web-dynamic-library--karrderriim.replit.app/api/keys/validate
           files: |
-            ${{ steps.find_dylib.outputs.dylib }}
-            ${{ steps.find_dylib.outputs.deb }}
+            ${{ steps.find_files.outputs.dylib }}
+            ${{ steps.find_files.outputs.deb }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
