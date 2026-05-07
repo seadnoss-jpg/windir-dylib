@@ -1,0 +1,10 @@
+Package: com.windir.keygate
+Name: Windir Keygate
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Windir license key protection gate. Validates keys against the Windir dashboard API.
+Homepage: https://t.me/windirffx
+Maintainer: Windir
+Author: Windir
+Section: Tweaks
